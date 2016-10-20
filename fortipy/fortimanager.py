@@ -105,11 +105,12 @@ class FortiManager(object):
     FortiManager class (SOAP/XML API)
     '''
 
-    def __init__(self, host, port=8080, username=None, password=None):
+    def __init__(self, host, port=8080, username=None, password=None, verify=True):
         self.json_url = 'https://{}/jsonrpc'.format(host)
         self.token = None
         credentials = namedtuple('Credentials', 'userID password')
         self.credentials = credentials(username, password)
+        self.verify = verify
         # Actual age of the login token
         self._token_age = None
         self.login()
@@ -125,10 +126,17 @@ class FortiManager(object):
         '''
         try:
             # Set verify to True to verify SSL certificates
-            r = requests.post(self.json_url, data, verify=False)
+            r = requests.post(self.json_url, data, verify=self.verify)
             return r.json()
+        except requests.exceptions.SSLError as e:
+            logger.error(
+                'SSL Handshake failed: {}\n'
+                'You may want to disable SSL cert verification '
+                '[!!!INSECURE!!!]'.format(e)
+            )
+            raise e
         except Exception as e:
-            logger.error('Caught Exception: {}'.format(e))
+            logger.error('Caught Exception: {}'.format(type(e)))
 
     @login_required
     def syntax(self, url, rq_id=1):
