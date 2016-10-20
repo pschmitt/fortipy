@@ -105,7 +105,7 @@ class FortiManager(object):
     FortiManager class (SOAP/XML API)
     '''
 
-    def __init__(self, host, port=8080, username=None, password=None, verify=True):
+    def __init__(self, host, username=None, password=None, verify=True):
         self.json_url = 'https://{}/jsonrpc'.format(host)
         self.token = None
         credentials = namedtuple('Credentials', 'userID password')
@@ -124,6 +124,7 @@ class FortiManager(object):
         '''
         Perform a JSON request
         '''
+        logger.debug('POST DATA: {}'.format(data))
         try:
             # Set verify to True to verify SSL certificates
             r = requests.post(self.json_url, data, verify=self.verify)
@@ -140,6 +141,7 @@ class FortiManager(object):
 
     @login_required
     def syntax(self, url, rq_id=1):
+        logger.debug('GET SYNTAX {}'.format(url))
         data = json.dumps(
             {
                 "method": "get",
@@ -156,29 +158,35 @@ class FortiManager(object):
         return self.__request(data)
 
     @login_required
-    def get(self, url, rq_id=11):
+    def __get(self, url, rq_id=11, option=None, verbose=False, skip=False):
         '''
         Generic "get" function
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": url
-                    }
-                ],
-                "id": rq_id,
-                "session": self.token
-            }
-        )
-        return self.__request(data)
+        logger.debug('GET {}'.format(url))
+        data = {
+            'method': 'get',
+            'params': [{'url': url}],
+            'id': rq_id,
+            'session': self.token,
+            'verbose': verbose,
+            'skip': skip
+        }
+        if option:
+            data['params'].append({'option': option})
+        jdata = json.dumps(data)
+        res = self.__request(jdata)
+        assert res['id'] == rq_id, 'Request ID changed.'
+        assert len(res['result']) == 1, 'More than one result has been returned'
+        logger.debug(res)
+        if 'data' in res['result'][0] and res['result'][0]['data']:
+            return [x for x in res['result'][0]['data']]
 
     @login_required
-    def add(self, url, data, rq_id=12):
+    def __add(self, url, data, rq_id=12):
         '''
         Generic "add" function
         '''
+        logger.debug('ADD {} - Data: {}'.format(url, data))
         data = json.dumps(
             {
                 "method": "add",
@@ -200,6 +208,7 @@ class FortiManager(object):
         '''
         Generic "set" method
         '''
+        logger.debug('ADD {} - Data: {}'.format(url, data))
         data = json.dumps(
             {
                 "method": "set",
@@ -221,6 +230,7 @@ class FortiManager(object):
         '''
         Generic "delete" function
         '''
+        logger.debug('ADD {} - Data: {}'.format(url, data))
         data = json.dumps(
             {
                 "method": "delete",
@@ -236,6 +246,27 @@ class FortiManager(object):
         )
         return self.__request(data)
 
+    def __exec(self, url, data, rq_id=11, verbose=False, skip=False):
+        '''
+        Generic "exec" function
+        '''
+        logger.debug('EXEC {} - Data: {}'.format(url, data))
+        token = self.token if self.token else 1
+        data = json.dumps(
+            {
+                "method": "exec",
+                "params": [
+                    {
+                        "url": url,
+                        "data": data
+                    }
+                ],
+                "id": rq_id,
+                "session": token
+            }
+        )
+        return self.__request(data)
+
     def login(self, username=None, password=None):
         '''
         Login using given credentials
@@ -245,25 +276,11 @@ class FortiManager(object):
             username = self.credentials.userID
         if password is None:
             password = self.credentials.password
-        data = json.dumps(
-            {
-                "params": [
-                    {
-                        "url": "sys/login/user",
-                        "data": [
-                            {
-                                "passwd": password,
-                                "user": username
-                            }
-                        ]
-                    }
-                ],
-                "session": 1,
-                "id": 1,
-                "method": "exec"
-            }
-        )
-        self.token = self.__request(data)['session']
+        url = 'sys/login/user'
+        data = {'passwd': password, 'user': username}
+        res = self.__exec(url, data)
+        assert res, 'No data received'
+        self.token = res['session']
         # Automatically log out at program exit
         atexit.register(self.logout)
         self._token_age = datetime.datetime.now()
@@ -274,6 +291,7 @@ class FortiManager(object):
         '''
         Log out, invalidate the session token
         '''
+        logger.debug('LOGOUT REQUEST')
         data = json.dumps(
             {
                 "params": [
@@ -313,8 +331,16 @@ class FortiManager(object):
 
     @login_required
     def get_adoms(self):
-        res = self.get_adom_vdom_list()
-        return [x for x in res['result'][0]['data']]
+        rq_id = 42
+        url = 'dvmdb/adom'
+        option = 'object member'
+        return self.__get(url=url, rq_id=rq_id, option=option)
+
+    @login_required
+    def get_load_balancers(self, adom):
+        rq_id = 545634
+        url = 'pm/config/adom/{}/obj/firewall/ldb-monitor'.format(adom)
+        return self.__get(url=url, rq_id=rq_id)
 
     @login_required
     @toggle_lock
@@ -355,47 +381,42 @@ class FortiManager(object):
         return self.__request(data)
 
     @login_required
-    def get_policy(self, policy_id=None, adom='root',
-                   policy_package='default'):
+    def get_policies(self, adom, policy_id=None, policy_package='default'):
         '''
         Read a policy
         If policy_id is supplied retrieve only the corresponding policy
         Otherwise get all policies in package
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url":
-                            "pm/config/adom/{}/pkg/{}/firewall/policy/{}".format(
-                                adom,
-                                policy_package,
-                                policy_id if policy_id else ''
-                            )
-                    }
-                ],
-                "id": 13789,
-                "session": self.token
-            }
+        rq_id = 13789
+        url = 'pm/config/adom/{}/pkg/{}/firewall/policy/{}'.format(
+            adom,
+            policy_package,
+            policy_id if policy_id else ''
         )
-        return self.__request(data)
+        return self.__get(url=url, rq_id=rq_id)
 
     @login_required
-    def json_get_policy_packages(self, adom):
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/pkg/adom/{}/".format(adom)
-                    }
-                ],
-                "id": 90001,
-                "session": self.token
-            }
+    def get_policy(self, adom, policy_id, policy_package='default'):
+        return self.get_policies(
+            adom, policy_package=policy_package, policy_id=policy_id
         )
-        return self.__request(data)
+
+    @login_required
+    def get_all_policies(self, adom):
+        policies = []
+        policy_packages = self.get_policy_packages(adom)
+        if policy_packages:
+            for polpkg in [x['name'] for x in policy_packages]:
+                pols = self.get_policies(adom=adom, policy_package=polpkg)
+                if pols:
+                    policies += pols
+        return policies
+
+    @login_required
+    def get_policy_packages(self, adom):
+        rq_id = 900001
+        url = 'pm/pkg/adom/{}/'.format(adom)
+        return self.__get(url=url, rq_id=rq_id)
 
     @login_required
     def rename_device(self, device):
@@ -817,7 +838,7 @@ class FortiManager(object):
         '''
         Get all traffic shapers for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/firewall/shaper/traffic-shaper'.format(adom),
             rq_id=5037
         )
@@ -829,7 +850,7 @@ class FortiManager(object):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/root/obj/antivirus/profile'.format(adom),
             rq_id=8175
         )
@@ -838,7 +859,7 @@ class FortiManager(object):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/webfilter/profile'.format(adom),
             rq_id=8177
         )
@@ -848,7 +869,7 @@ class FortiManager(object):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/ips/sensor'.format(adom),
             rq_id=9846
         )
@@ -858,7 +879,7 @@ class FortiManager(object):
         '''
         Get a list of all applications defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/application/list'.format(adom),
             rq_id=7850
         )
@@ -868,7 +889,7 @@ class FortiManager(object):
         '''
         Get a list of all local users defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/user/local'.format(adom),
             rq_id=9123
         )
@@ -878,7 +899,7 @@ class FortiManager(object):
         '''
         Get a list of all user groups defined for an ADOM
         '''
-        return self.get(
+        return self.__get(
             url='pm/config/adom/{}/obj/user/group'.format(adom),
             rq_id=9124
         )
