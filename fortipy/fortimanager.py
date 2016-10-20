@@ -6,17 +6,18 @@ URLs: https://fndn.fortinet.net/index.php?/topic/52-an-incomplete-list-of-url-pa
 
 from __future__ import print_function
 from collections import namedtuple
-from pprint import pprint
 import atexit
 import datetime
 import json
-# import logging
-import suds
-import sys
+import logging
 import requests
+import sys
 
 
-DEBUG = False
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
 # How long a token should be considered valid (in minutes)
 TOKEN_TIMEOUT = 2
 
@@ -48,11 +49,11 @@ def commonerrorhandler(f):
             # else:
             #     print('Success!')
             return result
-        except suds.WebFault as e:
-            if e.fault.faultstring == "Invalid admin user name '(null)'":
-                print('Invalid credentials!', file=sys.stderr)
+        # except suds.WebFault as e:
+        #     if e.fault.faultstring == "Invalid admin user name '(null)'":
+        #         print('Invalid credentials!', file=sys.stderr)
         except Exception as e:
-            print('Caught exception', e)
+            logger.error('Caught exception: {}'.format(e))
     return wrapped
 
 
@@ -67,6 +68,7 @@ def login_required(f):
         '''
         timediff = self._token_age - datetime.datetime.now()
         if timediff.total_seconds() / 60 > TOKEN_TIMEOUT:
+            logger.info('Token timeout has been reached. Let\'s login again')
             self.logout()  # Log out to invalidate previous token
             self.login()  # Request new token
         return f(self, *args, **kwargs)
@@ -84,19 +86,16 @@ def toggle_lock(f):
         '''
         adom = kwargs['adom']
         lock = self.lock_adom(adom=adom)
-        if DEBUG:
-            print(lock)
+        logger.debug(lock)
         if lock['result'][0]['status']['code'] != 0:
             raise LockException('Unable to lock ADOM')
         res = f(self, *args, **kwargs)
         commit = self.commit(adom=adom)
-        if DEBUG:
-            print(commit)
+        logger.debug(commit)
         if commit['result'][0]['status']['code'] != 0:
             raise CommitException('Unable to commit changes')
         unlock = self.unlock_adom(adom=adom)
-        if DEBUG:
-            print(unlock)
+        logger.debug(unlock)
         return res
     return _wrapper
 
@@ -129,10 +128,10 @@ class FortiManager(object):
             r = requests.post(self.json_url, data, verify=False)
             return r.json()
         except Exception as e:
-            print('Exception:', e, file=sys.stderr)
+            logger.error('Caught Exception: {}'.format(e))
 
     @login_required
-    def syntax(self, url, id=1):
+    def syntax(self, url, rq_id=1):
         data = json.dumps(
             {
                 "method": "get",
@@ -142,14 +141,14 @@ class FortiManager(object):
                         "option": "syntax"
                     }
                 ],
-                "id": id,
+                "id": rq_id,
                 "session": self.token
             }
         )
         return self.__request(data)
 
     @login_required
-    def get(self, url, id=11):
+    def get(self, url, rq_id=11):
         '''
         Generic "get" function
         '''
@@ -161,14 +160,14 @@ class FortiManager(object):
                         "url": url
                     }
                 ],
-                "id": id,
+                "id": rq_id,
                 "session": self.token
             }
         )
         return self.__request(data)
 
     @login_required
-    def add(self, url, data, id=12):
+    def add(self, url, data, rq_id=12):
         '''
         Generic "add" function
         '''
@@ -181,7 +180,7 @@ class FortiManager(object):
                         "data": data
                     }
                 ],
-                "id": id,
+                "id": rq_id,
                 "session": self.token
             }
         )
@@ -189,7 +188,7 @@ class FortiManager(object):
 
 
     @login_required
-    def set(self, url, data, id=14):
+    def set(self, url, data, rq_id=14):
         '''
         Generic "set" method
         '''
@@ -202,7 +201,7 @@ class FortiManager(object):
                         "data": data
                     }
                 ],
-                "id": id,
+                "id": rq_id,
                 "session": self.token
             }
         )
@@ -210,7 +209,7 @@ class FortiManager(object):
 
 
     @login_required
-    def delete(self, url, data, id=13):
+    def delete(self, url, data, rq_id=13):
         '''
         Generic "delete" function
         '''
@@ -223,7 +222,7 @@ class FortiManager(object):
                         "data": data
                     }
                 ],
-                "id": id,
+                "id": rq_id,
                 "session": self.token
             }
         )
@@ -303,6 +302,11 @@ class FortiManager(object):
             }
         )
         return self.__request(data)
+
+    @login_required
+    def get_adoms(self):
+        res = self.get_adom_vdom_list()
+        return [x for x in res['result'][0]['data']]
 
     @login_required
     @toggle_lock
@@ -502,7 +506,7 @@ class FortiManager(object):
                 adom, policy_pkg
             ),
             data=data,
-            id=666
+            rq_id=666
         )
 
     @login_required
@@ -517,7 +521,7 @@ class FortiManager(object):
         return self.add(
             url='pm/config/adom/{}/obj/dynamic/interface'.format(adom),
             data=data,
-            id=667
+            rq_id=667
         )
 
     @login_required
@@ -807,7 +811,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/firewall/shaper/traffic-shaper'.format(adom),
-            id=5037
+            rq_id=5037
         )
 
     # Profiles
@@ -819,7 +823,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/root/obj/antivirus/profile'.format(adom),
-            id=8175
+            rq_id=8175
         )
 
     def get_webfilters(self, adom):
@@ -828,7 +832,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/webfilter/profile'.format(adom),
-            id=8177
+            rq_id=8177
         )
 
     @login_required
@@ -838,7 +842,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/ips/sensor'.format(adom),
-            id=9846
+            rq_id=9846
         )
 
     @login_required
@@ -848,7 +852,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/application/list'.format(adom),
-            id=7850
+            rq_id=7850
         )
 
     @login_required
@@ -858,7 +862,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/user/local'.format(adom),
-            id=9123
+            rq_id=9123
         )
 
     @login_required
@@ -868,7 +872,7 @@ class FortiManager(object):
         '''
         return self.get(
             url='pm/config/adom/{}/obj/user/group'.format(adom),
-            id=9124
+            rq_id=9124
         )
 
     # Workspace functions (FortiManager 5 Patch Release 3)
