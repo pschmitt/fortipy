@@ -5,21 +5,14 @@ URLs: https://fndn.fortinet.net/index.php?/topic/52-an-incomplete-list-of-url-pa
 '''
 
 from __future__ import print_function
-from collections import namedtuple
-import atexit
-import datetime
+import forti
 import json
 import logging
-import requests
 import sys
 
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-
-# How long a token should be considered valid (in minutes)
-TOKEN_TIMEOUT = 2
 
 
 # Custom exceptions
@@ -29,50 +22,6 @@ class LockException(Exception):
 
 class CommitException(Exception):
     pass
-
-
-def commonerrorhandler(f):
-    '''
-    Centralized exception handling for common errors such as invalid
-    credentials or connection timeouts
-    Credits: http://stackoverflow.com/a/7589537
-    '''
-    def wrapped(*args, **kw):
-        '''
-        Wrapper function
-        '''
-        try:
-            result = f(*args, **kw)
-            # if result.errorMsg.errorCode != 0:
-            #     print(f.__name__, ': Something went wrong!',
-            #           result.errorMsg.errorMsg, file=sys.stderr)
-            # else:
-            #     print('Success!')
-            return result
-        # except suds.WebFault as e:
-        #     if e.fault.faultstring == "Invalid admin user name '(null)'":
-        #         print('Invalid credentials!', file=sys.stderr)
-        except Exception as e:
-            logger.error('Caught exception: {}'.format(e))
-    return wrapped
-
-
-def login_required(f):
-    '''
-    Definition decorator for all function requiring an auth token
-    Credit: http://stackoverflow.com/a/7590709
-    '''
-    def _wrapper(self, *args, **kwargs):
-        '''
-        Function to be applied on top of all decorated methods
-        '''
-        timediff = self._token_age - datetime.datetime.now()
-        if timediff.total_seconds() / 60 > TOKEN_TIMEOUT:
-            logger.info('Token timeout has been reached. Let\'s login again')
-            self.logout()  # Log out to invalidate previous token
-            self.login()  # Request new token
-        return f(self, *args, **kwargs)
-    return _wrapper
 
 
 def toggle_lock(f):
@@ -100,214 +49,29 @@ def toggle_lock(f):
     return _wrapper
 
 
-class FortiManager(object):
+class FortiManager(forti.Forti):
     '''
     FortiManager class (SOAP/XML API)
     '''
 
-    def __init__(self, host, username=None, password=None, verify=True):
-        self.json_url = 'https://{}/jsonrpc'.format(host)
-        self.token = None
-        credentials = namedtuple('Credentials', 'userID password')
-        self.credentials = credentials(username, password)
-        self.verify = verify
-        # Actual age of the login token
-        self._token_age = None
-        self.login()
+    @forti.login_required
+    def get_system_status(self):
+        # TODO This method may be common to FortiManager and Analyzer
+        return self._get('sys/status')
 
-    # JSON requests
+    @forti.login_required
+    def get_serial_number(self):
+        return self.get_system_status().get('Serial Number', None)
 
-    # FIXME Implement an ID checking method to make sure the answer we are
-    # getting is the one we are waiting for
+    @forti.login_required
+    def get_version(self):
+        return self.get_system_status().get('Version', None)
 
-    def __request(self, data):
-        '''
-        Perform a JSON request
-        '''
-        logger.debug('POST DATA: {}'.format(data))
-        try:
-            # Set verify to True to verify SSL certificates
-            r = requests.post(self.json_url, data, verify=self.verify)
-            return r.json()
-        except requests.exceptions.SSLError as e:
-            logger.error(
-                'SSL Handshake failed: {}\n'
-                'You may want to disable SSL cert verification '
-                '[!!!INSECURE!!!]'.format(e)
-            )
-            raise e
-        except Exception as e:
-            logger.error('Caught Exception: {}'.format(type(e)))
+    @forti.login_required
+    def get_hostname(self):
+        return self.get_system_status().get('Hostname', None)
 
-    @login_required
-    def syntax(self, url, rq_id=1):
-        logger.debug('GET SYNTAX {}'.format(url))
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": url,
-                        "option": "syntax"
-                    }
-                ],
-                "id": rq_id,
-                "session": self.token
-            }
-        )
-        return self.__request(data)
-
-    @login_required
-    def __get(self, url, rq_id=11, option=None, verbose=False, skip=False):
-        '''
-        Generic "get" function
-        '''
-        logger.debug('GET {}'.format(url))
-        data = {
-            'method': 'get',
-            'params': [{'url': url}],
-            'id': rq_id,
-            'session': self.token,
-            'verbose': verbose,
-            'skip': skip
-        }
-        if option:
-            data['params'].append({'option': option})
-        jdata = json.dumps(data)
-        res = self.__request(jdata)
-        assert res['id'] == rq_id, 'Request ID changed.'
-        assert len(res['result']) == 1, 'More than one result has been returned'
-        logger.debug(res)
-        if 'data' in res['result'][0] and res['result'][0]['data']:
-            return [x for x in res['result'][0]['data']]
-
-    @login_required
-    def __add(self, url, data, rq_id=12):
-        '''
-        Generic "add" function
-        '''
-        logger.debug('ADD {} - Data: {}'.format(url, data))
-        data = json.dumps(
-            {
-                "method": "add",
-                "params": [
-                    {
-                        "url": url,
-                        "data": data
-                    }
-                ],
-                "id": rq_id,
-                "session": self.token
-            }
-        )
-        return self.__request(data)
-
-
-    @login_required
-    def set(self, url, data, rq_id=14):
-        '''
-        Generic "set" method
-        '''
-        logger.debug('ADD {} - Data: {}'.format(url, data))
-        data = json.dumps(
-            {
-                "method": "set",
-                "params": [
-                    {
-                        "url": url,
-                        "data": data
-                    }
-                ],
-                "id": rq_id,
-                "session": self.token
-            }
-        )
-        return self.__request(data)
-
-
-    @login_required
-    def delete(self, url, data, rq_id=13):
-        '''
-        Generic "delete" function
-        '''
-        logger.debug('ADD {} - Data: {}'.format(url, data))
-        data = json.dumps(
-            {
-                "method": "delete",
-                "params": [
-                    {
-                        "url": url,
-                        "data": data
-                    }
-                ],
-                "id": rq_id,
-                "session": self.token
-            }
-        )
-        return self.__request(data)
-
-    def __exec(self, url, data, rq_id=11, verbose=False, skip=False):
-        '''
-        Generic "exec" function
-        '''
-        logger.debug('EXEC {} - Data: {}'.format(url, data))
-        token = self.token if self.token else 1
-        data = json.dumps(
-            {
-                "method": "exec",
-                "params": [
-                    {
-                        "url": url,
-                        "data": data
-                    }
-                ],
-                "id": rq_id,
-                "session": token
-            }
-        )
-        return self.__request(data)
-
-    def login(self, username=None, password=None):
-        '''
-        Login using given credentials
-        Return the session token
-        '''
-        if username is None:
-            username = self.credentials.userID
-        if password is None:
-            password = self.credentials.password
-        url = 'sys/login/user'
-        data = {'passwd': password, 'user': username}
-        res = self.__exec(url, data)
-        assert res, 'No data received'
-        self.token = res['session']
-        # Automatically log out at program exit
-        atexit.register(self.logout)
-        self._token_age = datetime.datetime.now()
-        return self.token
-
-    @login_required
-    def logout(self):
-        '''
-        Log out, invalidate the session token
-        '''
-        logger.debug('LOGOUT REQUEST')
-        data = json.dumps(
-            {
-                "params": [
-                    {
-                        "url": "sys/logout"
-                    }
-                ],
-                "session": self.token,
-                "id": 3,
-                "method": "exec"
-            }
-        )
-        self.token = None
-        return self.__request(data)
-
-    @login_required
+    @forti.login_required
     def get_adom_vdom_list(self, verbose=False, skip=False):
         '''
         Get a list of all ADOMs and their assigned VDOMs
@@ -327,22 +91,22 @@ class FortiManager(object):
                 "skip": skip
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_adoms(self):
-        rq_id = 42
+        request_id = 42
         url = 'dvmdb/adom'
         option = 'object member'
-        return self.__get(url=url, rq_id=rq_id, option=option)
+        return self._get(url=url, request_id=request_id, option=option)
 
-    @login_required
+    @forti.login_required
     def get_load_balancers(self, adom):
-        rq_id = 545634
+        request_id = 545634
         url = 'pm/config/adom/{}/obj/firewall/ldb-monitor'.format(adom)
-        return self.__get(url=url, rq_id=rq_id)
+        return self._get(url=url, request_id=request_id)
 
-    @login_required
+    @forti.login_required
     @toggle_lock
     def add_policy_package(self, adom, data):
         '''
@@ -378,30 +142,30 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_policies(self, adom, policy_id=None, policy_package='default'):
         '''
         Read a policy
         If policy_id is supplied retrieve only the corresponding policy
         Otherwise get all policies in package
         '''
-        rq_id = 13789
+        request_id = 13789
         url = 'pm/config/adom/{}/pkg/{}/firewall/policy/{}'.format(
             adom,
             policy_package,
             policy_id if policy_id else ''
         )
-        return self.__get(url=url, rq_id=rq_id)
+        return self._get(url=url, request_id=request_id)
 
-    @login_required
+    @forti.login_required
     def get_policy(self, adom, policy_id, policy_package='default'):
         return self.get_policies(
             adom, policy_package=policy_package, policy_id=policy_id
         )
 
-    @login_required
+    @forti.login_required
     def get_all_policies(self, adom):
         policies = []
         policy_packages = self.get_policy_packages(adom)
@@ -412,34 +176,34 @@ class FortiManager(object):
                     policies += pols
         return policies
 
-    @login_required
+    @forti.login_required
     def get_policy_packages(self, adom):
-        rq_id = 900001
+        request_id = 900001
         url = 'pm/pkg/adom/{}/'.format(adom)
-        return self.__get(url=url, rq_id=rq_id)
+        return self._get(url=url, request_id=request_id)
 
-    @login_required
+    @forti.login_required
     def rename_device(self, device):
         '''
         Rename a device
         '''
         pass
 
-    @login_required
+    @forti.login_required
     def add_vdom(self, vdom):
         '''
         Create a new VDOM
         '''
         pass
 
-    @login_required
+    @forti.login_required
     def assign_vdom_to_adom(self, adom, vdom):
         '''
         Assign an ADOM to a VDOM
         '''
         pass
 
-    @login_required
+    @forti.login_required
     def get_adom_revision_list(self, adom='default',
                                verbose=False, skip=False):
         '''
@@ -459,9 +223,9 @@ class FortiManager(object):
                 "skip": skip
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def create_revision(self, adom, name=None, created_by=None,
                         description=None, locked=False):
         '''
@@ -487,9 +251,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def delete_adom_revision(self, adom, revision_id):
         return self.delete(
             url='dvmdb/adom/{}/revision/{}'.format(
@@ -498,7 +262,7 @@ class FortiManager(object):
             data=None
         )
 
-    @login_required
+    @forti.login_required
     def revert_revision(self, adom, revision_id, name=None, created_by=None,
                         locked=False, description=None):
         '''
@@ -524,9 +288,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     @toggle_lock
     def add_policy(self, adom='root', policy_pkg='default',
                    data=None):
@@ -535,25 +299,25 @@ class FortiManager(object):
                 adom, policy_pkg
             ),
             data=data,
-            rq_id=666
+            request_id=666
         )
 
-    @login_required
+    @forti.login_required
     @toggle_lock
     def edit_policy(self, adom, policy_id):
         pass
 
     # Add objects
-    @login_required
+    @forti.login_required
     @toggle_lock
     def add_interface(self, adom='root', data=None):
         return self.add(
             url='pm/config/adom/{}/obj/dynamic/interface'.format(adom),
             data=data,
-            rq_id=667
+            request_id=667
         )
 
-    @login_required
+    @forti.login_required
     @toggle_lock
     def delete_policy(self, policy_id, adom='root', policy_pkg='default'):
         '''
@@ -573,9 +337,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     @toggle_lock
     def delete_interface(self, interface, adom='root'):
         '''
@@ -586,7 +350,7 @@ class FortiManager(object):
             None
         )
 
-    @login_required
+    @forti.login_required
     def get_security_profiles(self, adom):
         '''
         test
@@ -603,9 +367,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_addresses(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -622,9 +386,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_addresses6(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -641,9 +405,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_address6_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -660,9 +424,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_address_groups(self, adom):
         '''
         Get all firewall adress groups defined for an ADOM
@@ -679,9 +443,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_interfaces(self, adom):
         '''
         Get all interfaces defined for an ADOM
@@ -698,9 +462,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_services(self, adom):
         '''
         Get all (firewall) services defined for an ADOM
@@ -717,9 +481,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_service_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -736,9 +500,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_schedules(self, adom):
         '''
         Get all scheduless defined for an ADOM
@@ -755,9 +519,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_schedule_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -774,9 +538,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_vips(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -793,9 +557,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_firewall_vip_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -812,10 +576,10 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
-    def json_get_devices(self, adom):
+    @forti.login_required
+    def get_devices(self, adom):
         '''
         Get all devices defined for an ADOM
         '''
@@ -831,82 +595,82 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def get_traffic_shapers(self, adom):
         '''
         Get all traffic shapers for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/firewall/shaper/traffic-shaper'.format(adom),
-            rq_id=5037
+            request_id=5037
         )
 
     # Profiles
 
-    @login_required
+    @forti.login_required
     def get_antivirus_profiles(self, adom):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/root/obj/antivirus/profile'.format(adom),
-            rq_id=8175
+            request_id=8175
         )
 
     def get_webfilters(self, adom):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/webfilter/profile'.format(adom),
-            rq_id=8177
+            request_id=8177
         )
 
-    @login_required
+    @forti.login_required
     def get_ips_sensors(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/ips/sensor'.format(adom),
-            rq_id=9846
+            request_id=9846
         )
 
-    @login_required
+    @forti.login_required
     def get_application_sensors(self, adom):
         '''
         Get a list of all applications defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/application/list'.format(adom),
-            rq_id=7850
+            request_id=7850
         )
 
-    @login_required
+    @forti.login_required
     def get_users(self, adom):
         '''
         Get a list of all local users defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/user/local'.format(adom),
-            rq_id=9123
+            request_id=9123
         )
 
-    @login_required
+    @forti.login_required
     def json_get_groups(self, adom):
         '''
         Get a list of all user groups defined for an ADOM
         '''
-        return self.__get(
+        return self._get(
             url='pm/config/adom/{}/obj/user/group'.format(adom),
-            rq_id=9124
+            request_id=9124
         )
 
     # Workspace functions (FortiManager 5 Patch Release 3)
 
-    @login_required
+    @forti.login_required
     def lock_adom(self, adom):
         '''
         Lock an ADOM
@@ -923,9 +687,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def unlock_adom(self, adom):
         '''
         Unclock an ADOM
@@ -942,9 +706,9 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
-    @login_required
+    @forti.login_required
     def commit(self, adom):
         '''
         Commit changes made to ADOM
@@ -961,7 +725,7 @@ class FortiManager(object):
                 "session": self.token
             }
         )
-        return self.__request(data)
+        return self._request(data)
 
 
 
