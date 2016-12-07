@@ -143,10 +143,13 @@ class Forti(object):
         # assert len(res['result']) == 1, 'More than one result has been returned'
         if len(res['result']) > 1:
             logger.warning('More than one result has been returned')
-        if 'data' in res['result']:
-            if len(res['result']['data']) > 0 and type(res['result']['data']) is list:
-                if res['result'][0]['data']:
-                    return [x for x in res['result'][0]['data']]
+        if type(res['result']) is list:
+            if 'data' in res['result'][0]:
+                if not res['result'][0]['data']:
+                    return
+                if len(res['result'][0]['data']) > 0 and type(res['result'][0]['data']) is list:
+                    if res['result'][0]['data']:
+                        return [x for x in res['result'][0]['data']]
         return res['result']['data']
 
     @login_required
