@@ -578,24 +578,19 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
+
+
     @forti.login_required
-    def get_devices(self, adom):
+    def get_devices(self, adom=None):
         '''
         Get all devices defined for an ADOM
+        If adom is undefined return all devices
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "dvmdb/adom/{}/device".format(adom)
-                    }
-                ],
-                "id": 7465,
-                "session": self.token
-            }
+        url = 'dvmdb/adom/{}/device'.format(adom) if adom else 'dvmdb'
+        return self._get(
+            url=url,
+            request_id=7465
         )
-        return self._request(data)
 
     @forti.login_required
     def get_traffic_shapers(self, adom):
