@@ -231,6 +231,7 @@ class Forti(object):
         Log out, invalidate the session token
         '''
         logger.debug('LOGOUT REQUEST')
+        res = self._exec(url='sys/logout', request_id=3)
         self.token = None
-        return self._exec(url='sys/logout', request_id=3)
+        return res
 
