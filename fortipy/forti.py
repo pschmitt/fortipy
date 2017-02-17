@@ -70,8 +70,9 @@ class Forti(object):
     Forti class (JSON API)
     '''
 
-    def __init__(self, host, username=None, password=None, verify=True):
-        self.json_url = 'https://{}/jsonrpc'.format(host)
+    def __init__(self, host, port=443, username=None, password=None,
+                 verify=True):
+        self.json_url = 'https://{}:{}/jsonrpc'.format(host, port)
         self.token = None
         credentials = namedtuple('Credentials', 'userID password')
         self.credentials = credentials(username, password)
