@@ -374,211 +374,99 @@ class FortiManager(forti.Forti):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/address".format(adom)
-                    }
-                ],
-                "id": 5623,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5623
+        url = 'pm/config/adom/{}/obj/firewall/address'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_addresses6(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/address6".format(adom)
-                    }
-                ],
-                "id": 562,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 562
+        url = 'pm/config/adom/{}/obj/firewall/address6'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_address6_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/addrgrp6".format(adom)
-                    }
-                ],
-                "id": 5622,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5622,
+        url = 'pm/config/adom/{}/obj/firewall/addrgrp6'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_address_groups(self, adom):
         '''
         Get all firewall adress groups defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/addrgrp".format(adom)
-                    }
-                ],
-                "id": 56227,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 56227
+        url = 'pm/config/adom/{}/obj/firewall/addrgrp'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_interfaces(self, adom):
         '''
         Get all interfaces defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/dynamic/interface".format(adom)
-                    }
-                ],
-                "id": 5682,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5682
+        url = 'pm/config/adom/{}/obj/dynamic/interface'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_services(self, adom):
         '''
         Get all (firewall) services defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/service/custom".format(adom)
-                    }
-                ],
-                "id": 5617,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5617
+        url = 'pm/config/adom/{}/obj/firewall/service/custom'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_service_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/service/group".format(adom)
-                    }
-                ],
-                "id": 5616,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5616
+        url = 'pm/config/adom/{}/obj/firewall/service/group'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_schedules(self, adom):
         '''
         Get all scheduless defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/schedule/recurring".format(adom)
-                    }
-                ],
-                "id": 5620,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5620
+        url = 'pm/config/adom/{}/obj/firewall/schedule/recurring'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_schedule_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/schedule/group".format(adom)
-                    }
-                ],
-                "id": 5620,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 56201
+        url = 'pm/config/adom/{}/obj/firewall/schedule/group'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_vips(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/vip".format(adom)
-                    }
-                ],
-                "id": 5632,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5632
+        url = 'pm/config/adom/{}/obj/firewall/vip'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_firewall_vip_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall/vipgrp".format(adom)
-                    }
-                ],
-                "id": 5633,
-                "session": self.token
-            }
-        )
-        return self._request(data)
-
-
+        request_id = 5633
+        url = 'pm/config/adom/{}/obj/firewall/vipgrp'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @forti.login_required
     def get_devices(self, adom=None):
