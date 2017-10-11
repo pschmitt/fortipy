@@ -4,8 +4,9 @@ Author: Philipp Schmitt <philipp.schmitt@post.lu>
 URLs: https://fndn.fortinet.net/index.php?/topic/52-an-incomplete-list-of-url-parameters-for-use-with-the-json-api/
 '''
 
+from __future__ import absolute_import
 from __future__ import print_function
-import forti
+from .forti import (login_required, Forti)
 import json
 import logging
 import sys
@@ -49,29 +50,29 @@ def toggle_lock(f):
     return _wrapper
 
 
-class FortiManager(forti.Forti):
+class FortiManager(Forti):
     '''
     FortiManager class (SOAP/XML API)
     '''
 
-    @forti.login_required
+    @login_required
     def get_system_status(self):
         # TODO This method may be common to FortiManager and Analyzer
         return self._get('sys/status')
 
-    @forti.login_required
+    @login_required
     def get_serial_number(self):
         return self.get_system_status().get('Serial Number', None)
 
-    @forti.login_required
+    @login_required
     def get_version(self):
         return self.get_system_status().get('Version', None)
 
-    @forti.login_required
+    @login_required
     def get_hostname(self):
         return self.get_system_status().get('Hostname', None)
 
-    @forti.login_required
+    @login_required
     def get_adom_vdom_list(self, verbose=False, skip=False):
         '''
         Get a list of all ADOMs and their assigned VDOMs
@@ -93,20 +94,20 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def get_adoms(self):
         request_id = 42
         url = 'dvmdb/adom'
         option = 'object member'
         return self._get(url=url, request_id=request_id, option=option)
 
-    @forti.login_required
+    @login_required
     def get_load_balancers(self, adom):
         request_id = 545634
         url = 'pm/config/adom/{}/obj/firewall/ldb-monitor'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     @toggle_lock
     def add_policy_package(self, adom, data):
         '''
@@ -144,7 +145,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def get_policies(self, adom, policy_id=None, policy_package='default'):
         '''
         Read a policy
@@ -159,13 +160,13 @@ class FortiManager(forti.Forti):
         )
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_policy(self, adom, policy_id, policy_package='default'):
         return self.get_policies(
             adom, policy_package=policy_package, policy_id=policy_id
         )
 
-    @forti.login_required
+    @login_required
     def get_all_policies(self, adom):
         policies = []
         policy_packages = self.get_policy_packages(adom)
@@ -176,34 +177,34 @@ class FortiManager(forti.Forti):
                     policies += pols
         return policies
 
-    @forti.login_required
+    @login_required
     def get_policy_packages(self, adom):
         request_id = 900001
         url = 'pm/pkg/adom/{}/'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def rename_device(self, device):
         '''
         Rename a device
         '''
         pass
 
-    @forti.login_required
+    @login_required
     def add_vdom(self, vdom):
         '''
         Create a new VDOM
         '''
         pass
 
-    @forti.login_required
+    @login_required
     def assign_vdom_to_adom(self, adom, vdom):
         '''
         Assign an ADOM to a VDOM
         '''
         pass
 
-    @forti.login_required
+    @login_required
     def get_adom_revision_list(self, adom='default',
                                verbose=False, skip=False):
         '''
@@ -225,7 +226,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def create_revision(self, adom, name=None, created_by=None,
                         description=None, locked=False):
         '''
@@ -253,7 +254,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def delete_adom_revision(self, adom, revision_id):
         return self.delete(
             url='dvmdb/adom/{}/revision/{}'.format(
@@ -262,7 +263,7 @@ class FortiManager(forti.Forti):
             data=None
         )
 
-    @forti.login_required
+    @login_required
     def revert_revision(self, adom, revision_id, name=None, created_by=None,
                         locked=False, description=None):
         '''
@@ -290,7 +291,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     @toggle_lock
     def add_policy(self, adom='root', policy_pkg='default',
                    data=None):
@@ -302,13 +303,13 @@ class FortiManager(forti.Forti):
             request_id=666
         )
 
-    @forti.login_required
+    @login_required
     @toggle_lock
     def edit_policy(self, adom, policy_id):
         pass
 
     # Add objects
-    @forti.login_required
+    @login_required
     @toggle_lock
     def add_interface(self, adom='root', data=None):
         return self.add(
@@ -317,7 +318,7 @@ class FortiManager(forti.Forti):
             request_id=667
         )
 
-    @forti.login_required
+    @login_required
     @toggle_lock
     def delete_policy(self, policy_id, adom='root', policy_pkg='default'):
         '''
@@ -339,7 +340,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     @toggle_lock
     def delete_interface(self, interface, adom='root'):
         '''
@@ -350,7 +351,7 @@ class FortiManager(forti.Forti):
             None
         )
 
-    @forti.login_required
+    @login_required
     def get_security_profiles(self, adom):
         '''
         test
@@ -369,7 +370,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def get_firewall_addresses(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -378,7 +379,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/address'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_addresses6(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -387,7 +388,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/address6'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_address6_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -396,7 +397,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/addrgrp6'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_address_groups(self, adom):
         '''
         Get all firewall adress groups defined for an ADOM
@@ -405,7 +406,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/addrgrp'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_interfaces(self, adom):
         '''
         Get all interfaces defined for an ADOM
@@ -414,7 +415,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/dynamic/interface'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_services(self, adom):
         '''
         Get all (firewall) services defined for an ADOM
@@ -423,7 +424,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/service/custom'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_service_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -432,7 +433,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/service/group'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_schedules(self, adom):
         '''
         Get all scheduless defined for an ADOM
@@ -441,7 +442,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/schedule/recurring'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_schedule_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -450,7 +451,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/schedule/group'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_vips(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -459,7 +460,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/vip'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_firewall_vip_groups(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -468,7 +469,7 @@ class FortiManager(forti.Forti):
         url = 'pm/config/adom/{}/obj/firewall/vipgrp'.format(adom)
         return self._get(url=url, request_id=request_id)
 
-    @forti.login_required
+    @login_required
     def get_devices(self, adom=None):
         '''
         Get all devices defined for an ADOM
@@ -480,7 +481,7 @@ class FortiManager(forti.Forti):
             request_id=7465
         )
 
-    @forti.login_required
+    @login_required
     def get_traffic_shapers(self, adom):
         '''
         Get all traffic shapers for an ADOM
@@ -492,7 +493,7 @@ class FortiManager(forti.Forti):
 
     # Profiles
 
-    @forti.login_required
+    @login_required
     def get_antivirus_profiles(self, adom):
         '''
         Get all antivirus profiles defined for an ADOM
@@ -511,7 +512,7 @@ class FortiManager(forti.Forti):
             request_id=8177
         )
 
-    @forti.login_required
+    @login_required
     def get_ips_sensors(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
@@ -521,7 +522,7 @@ class FortiManager(forti.Forti):
             request_id=9846
         )
 
-    @forti.login_required
+    @login_required
     def get_application_sensors(self, adom):
         '''
         Get a list of all applications defined for an ADOM
@@ -531,7 +532,7 @@ class FortiManager(forti.Forti):
             request_id=7850
         )
 
-    @forti.login_required
+    @login_required
     def get_users(self, adom):
         '''
         Get a list of all local users defined for an ADOM
@@ -541,7 +542,7 @@ class FortiManager(forti.Forti):
             request_id=9123
         )
 
-    @forti.login_required
+    @login_required
     def json_get_groups(self, adom):
         '''
         Get a list of all user groups defined for an ADOM
@@ -553,7 +554,7 @@ class FortiManager(forti.Forti):
 
     # Workspace functions (FortiManager 5 Patch Release 3)
 
-    @forti.login_required
+    @login_required
     def lock_adom(self, adom):
         '''
         Lock an ADOM
@@ -572,7 +573,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def unlock_adom(self, adom):
         '''
         Unclock an ADOM
@@ -591,7 +592,7 @@ class FortiManager(forti.Forti):
         )
         return self._request(data)
 
-    @forti.login_required
+    @login_required
     def commit(self, adom):
         '''
         Commit changes made to ADOM
