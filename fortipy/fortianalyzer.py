@@ -4,8 +4,9 @@ Author: Philipp Schmitt <philipp.schmitt@post.lu>
 URLs: https://fndn.fortinet.net/index.php?/topic/52-an-incomplete-list-of-url-parameters-for-use-with-the-json-api/
 '''
 
+from __future__ import absolute_import
 from __future__ import print_function
-import forti
+from .forti import Forti
 import ssl
 from suds.client import Client
 
@@ -14,7 +15,7 @@ from suds.client import Client
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
-class FortiAnalyzer(forti.Forti):
+class FortiAnalyzer(Forti):
     def _run(self, url, data, request_id):
         return self._request(
             method='run',
