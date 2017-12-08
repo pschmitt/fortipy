@@ -169,12 +169,13 @@ class FortiManager(Forti):
     @login_required
     def get_all_policies(self, adom):
         policies = []
-        policy_packages = self.get_policy_packages(adom)
-        if policy_packages:
-            for polpkg in [x['name'] for x in policy_packages]:
-                pols = self.get_policies(adom=adom, policy_package=polpkg)
-                if pols:
-                    policies += pols
+        policy_packages = self.get_policy_package_names(adom)
+        if not policy_packages:
+            return
+        for polpkg in policy_packages:
+            pols = self.get_policies(adom=adom, policy_package=polpkg)
+            if pols:
+                policies += pols
         return policies
 
     @login_required
@@ -182,6 +183,25 @@ class FortiManager(Forti):
         request_id = 900001
         url = 'pm/pkg/adom/{}/'.format(adom)
         return self._get(url=url, request_id=request_id)
+
+    @login_required
+    def get_policy_package_names(self, adom):
+        policy_packages = self.get_policy_packages(adom)
+        if not policy_packages:
+            return
+        package_names = []
+        for pol_pkg in policy_packages:
+            children = pol_pkg.get('subobj')
+            if children:
+                # FIXME This only works with a depth of one!
+                for child in children:
+                    package_names.append(
+                        '{}/{}'.format(pol_pkg.get('name'), child.get('name')))
+            else:
+                package_names.append(pol_pkg.get('name'))
+        return package_names
+
+
 
     @login_required
     def rename_device(self, device):
@@ -354,21 +374,11 @@ class FortiManager(Forti):
     @login_required
     def get_security_profiles(self, adom):
         '''
-        test
+        Get security profiles
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/obj/firewall".format(adom)
-                    }
-                ],
-                "id": 5623,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        request_id = 5723
+        url = 'pm/config/adom/{}/obj/firewall'.format(adom)
+        return self._get(url=url, request_id=request_id)
 
     @login_required
     def get_firewall_addresses(self, adom):
