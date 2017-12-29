@@ -94,7 +94,6 @@ class Forti(object):
                 'method': method,
                 'params': [{'url': url, 'data': data, 'option': option}],
                 'id': request_id,
-                'session': self.token,
                 'verbose': verbose,
                 'jsonrpc': '2.0',
                 'session': self.token if self.token else 1
