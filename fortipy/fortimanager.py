@@ -332,11 +332,31 @@ class FortiManager(Forti):
     @login_required
     @toggle_lock
     def add_interface(self, adom='root', data=None):
-        return self.add(
+        return self._add(
             url='pm/config/adom/{}/obj/dynamic/interface'.format(adom),
             data=data,
             request_id=667
         )
+
+    @login_required
+    @toggle_lock
+    def add_firewall_address(self, adom='root', data=None):
+        return self._add(
+            url='pm/config/adom/{}/obj/firewall/address'.format(adom),
+            data=data,
+            request_id=6670
+        )
+
+    #Update existing objects
+    @login_required
+    @toggle_lock
+    def update_firewall_addrgrp(self, adom='root', addrgrp_name=None, data=None):
+        return self._update(
+            url='pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(adom, addrgrp_name), 
+            data=data,
+            request_id=66700
+        )
+    
 
     @login_required
     @toggle_lock
@@ -414,6 +434,15 @@ class FortiManager(Forti):
         '''
         request_id = 56227
         url = 'pm/config/adom/{}/obj/firewall/addrgrp'.format(adom)
+        return self._get(url=url, request_id=request_id)
+
+    @login_required
+    def get_firewall_address_group(self, adom, addrgrp_name):
+        '''
+        Get all firewall adress groups defined for an ADOM
+        '''
+        request_id = 562270
+        url = 'pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(adom, addrgrp_name)
         return self._get(url=url, request_id=request_id)
 
     @login_required
@@ -569,57 +598,21 @@ class FortiManager(Forti):
         '''
         Lock an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "exec",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/_workspace/lock".format(adom)
-                    }
-                ],
-                "id": 5612,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        return self._exec(url="pm/config/adom/{}/_workspace/lock".format(adom), request_id = 5612)
 
     @login_required
     def unlock_adom(self, adom):
         '''
         Unclock an ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "exec",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/_workspace/unlock".format(adom)
-                    }
-                ],
-                "id": 5613,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        return self._exec(url="pm/config/adom/{}/_workspace/unlock".format(adom), request_id = 5613)
 
     @login_required
     def commit(self, adom):
         '''
         Commit changes made to ADOM
         '''
-        data = json.dumps(
-            {
-                "method": "exec",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/_workspace/commit".format(adom)
-                    }
-                ],
-                "id": 5614,
-                "session": self.token
-            }
-        )
-        return self._request(data)
+        return self._exec(url="pm/config/adom/{}/_workspace/commit".format(adom), request_id = 5614)
 
 
 
