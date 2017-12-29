@@ -183,6 +183,19 @@ class Forti(object):
         )
 
     @login_required
+    def _update(self, url, data, request_id=15, verbose=False):
+        '''
+        Generic "set" method
+        '''
+        return self._request(
+            method='update',
+            url=url,
+            request_id=request_id,
+            data=data,
+            verbose=verbose
+        )
+
+    @login_required
     def _delete(self, url, data, request_id=13, verbose=False):
         '''
         Generic "delete" function
