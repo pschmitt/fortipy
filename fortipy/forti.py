@@ -143,14 +143,18 @@ class Forti(object):
         # assert len(res['result']) == 1, 'More than one result has been returned'
         if len(res['result']) > 1:
             logger.warning('More than one result has been returned')
-        if type(res['result']) is list:
+
+        if isinstance(res['result'], list):
             if 'data' in res['result'][0]:
-                if not res['result'][0]['data']:
-                    return
-                if len(res['result'][0]['data']) > 0 and type(res['result'][0]['data']) is list:
-                    if res['result'][0]['data']:
-                        return [x for x in res['result'][0]['data']]
+                if isinstance(res['result'][0]['data'], list):
+                    return [x for x in res['result'][0]['data']]
+                else:
+                    # its a dict, just return it
+                    return res['result'][0]['data'] 
+            else:
+                logger.warning("unhandled case - don't know if thats possible")
         return res['result']['data']
+
 
     @login_required
     def _add(self, url, data, request_id=12, verbose=False):
