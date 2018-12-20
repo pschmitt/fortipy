@@ -201,6 +201,20 @@ class FortiManager(Forti):
                 package_names.append(pol_pkg.get('name'))
         return package_names
 
+    @login_required
+    def get_global_policies(self, section='header', policy_id=None, policy_package='default'):
+        '''
+        Read the global policy, specifing the header or footer section
+        If policy_id is supplied retrieve only the corresponding policy
+        Otherwise get all policies in package
+        '''
+        request_id = 13789
+        url = 'pm/config/global/pkg/{}/global/{}/policy/{}'.format(
+            policy_package,
+            section,
+            policy_id if policy_id else ''
+        )
+        return self._get(url=url, request_id=request_id)
 
 
     @login_required
