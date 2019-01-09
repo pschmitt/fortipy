@@ -77,35 +77,30 @@ class FortiManager(Forti):
         '''
         Get a list of all ADOMs and their assigned VDOMs
         '''
-        data = json.dumps(
-            {
-                "method": "get",
-                "params": [
-                    {
-                        "url": "dvmdb/adom",
-                        "option": "object member"
-                    }
-                ],
-                "id": 42,
-                "session": self.token,
-                "verbose": verbose,
-                "skip": skip
-            }
+        return self._request(
+            'get',
+            'dvmdb/adom',
+            option='object member',
+            request_id=42,
+            verbose=verbose
         )
-        return self._request(data)
 
     @login_required
-    def get_adoms(self):
-        request_id = 42
-        url = 'dvmdb/adom'
-        option = 'object member'
-        return self._get(url=url, request_id=request_id, option=option)
+    def get_adoms(self, **kwargs):
+        return self._get(
+            url='dvmdb/adom',
+            request_id=42,
+            option='object member',
+            **kwargs
+        )
 
     @login_required
-    def get_load_balancers(self, adom):
-        request_id = 545634
-        url = 'pm/config/adom/{}/obj/firewall/ldb-monitor'.format(adom)
-        return self._get(url=url, request_id=request_id)
+    def get_load_balancers(self, adom, **kwargs):
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/ldb-monitor'.format(adom),
+            request_id=545634,
+            **kwargs
+        )
 
     @login_required
     @toggle_lock
@@ -115,78 +110,74 @@ class FortiManager(Forti):
         adom: Name of the parent ADOM (ie. the destination)
         TODO
         '''
-        data = json.dumps(
+        data = [
             {
-                "method": "set",
-                "params": [
+                "name": "test1",
+                "type": "pkg"
+            },
+            {
+                "name": "folder1",
+                "type": "folder",
+                "subobj": [
                     {
-                        "url": "pm/pkg/adom/{}".format(adom),
-                        "data": [
-                            {
-                                "name": "test1",
-                                "type": "pkg"
-                            },
-                            {
-                                "name": "folder1",
-                                "type": "folder",
-                                "subobj": [
-                                    {
-                                        "name": "pkg01",
-                                        "type": "pkg"
-                                    }
-                                ]
-                            }
-                        ]
+                        "name": "pkg01",
+                        "type": "pkg"
                     }
-                ],
-                "id": 5,
-                "session": self.token
+                ]
             }
+        ]
+        return self._set(
+            url="pm/pkg/adom/{}".format(adom),
+            data=data,
+            request_id=5
         )
-        return self._request(data)
 
     @login_required
-    def get_policies(self, adom, policy_id=None, policy_package='default'):
+    def get_policies(self, adom, policy_id=None, policy_package='default', **kwargs):
         '''
         Read a policy
         If policy_id is supplied retrieve only the corresponding policy
         Otherwise get all policies in package
         '''
-        request_id = 13789
         url = 'pm/config/adom/{}/pkg/{}/firewall/policy/{}'.format(
             adom,
             policy_package,
             policy_id if policy_id else ''
         )
-        return self._get(url=url, request_id=request_id)
+        return self._get(url=url, request_id=13789, **kwargs)
 
     @login_required
-    def get_policy(self, adom, policy_id, policy_package='default'):
+    def get_policy(self, adom, policy_id, policy_package='default', **kwargs):
         return self.get_policies(
-            adom, policy_package=policy_package, policy_id=policy_id
+            adom,
+            policy_package=policy_package,
+            policy_id=policy_id,
+            **kwargs
         )
 
     @login_required
-    def get_all_policies(self, adom):
+    def get_all_policies(self, adom, **kwargs):
         policies = []
         policy_packages = self.get_policy_package_names(adom)
         if not policy_packages:
             return
         for polpkg in policy_packages:
-            pols = self.get_policies(adom=adom, policy_package=polpkg)
+            pols = self.get_policies(adom=adom, policy_package=polpkg, **kwargs)
             if pols:
                 policies += pols
         return policies
 
     @login_required
-    def get_policy_packages(self, adom):
-        request_id = 900001
-        url = 'pm/pkg/adom/{}/'.format(adom)
-        return self._get(url=url, request_id=request_id)
+    def get_policy_packages(self, adom, **kwargs):
+        return self._get(
+            url='pm/pkg/adom/{}/'.format(adom),
+            request_id=900001,
+            **kwargs
+        )
 
     @login_required
-    def get_policy_package_names(self, adom):
-        policy_packages = self.get_policy_packages(adom)
+    def get_policy_package_names(self, adom, **kwargs):
+        policy_packages = self.get_policy_packages(adom, **kwargs)
         if not policy_packages:
             return
         package_names = []
@@ -202,20 +193,18 @@ class FortiManager(Forti):
         return package_names
 
     @login_required
-    def get_global_policies(self, section='header', policy_id=None, policy_package='default'):
+    def get_global_policies(self, section='header', policy_id=None, policy_package='default', **kwargs):
         '''
         Read the global policy, specifing the header or footer section
         If policy_id is supplied retrieve only the corresponding policy
         Otherwise get all policies in package
         '''
-        request_id = 13789
         url = 'pm/config/global/pkg/{}/global/{}/policy/{}'.format(
             policy_package,
             section,
             policy_id if policy_id else ''
         )
-        return self._get(url=url, request_id=request_id)
-
+        return self._get(url=url, request_id=13789, **kwargs)
 
     @login_required
     def rename_device(self, device):
@@ -268,32 +257,22 @@ class FortiManager(Forti):
         '''
         if created_by is None:
             created_by = self.credentials.userID
-        data = json.dumps(
-            {
-                "method": "set",
-                "params": [
-                    {
-                        "url": "dvmdb/adom/{}/revision".format(adom),
-                        "data": {
-                            "created_by": created_by,
-                            "desc": description,
-                            "locked": locked,
-                            "name": name
-                        }
-                    }
-                ],
-                "id": 12015,
-                "session": self.token
-            }
+        data = {
+            "created_by": created_by,
+            "desc": description,
+            "locked": locked,
+            "name": name
+        }
+        return self._set(
+            url="dvmdb/adom/{}/revision".format(adom),
+            data=data,
+            request_id=12015
         )
-        return self._request(data)
 
     @login_required
     def delete_adom_revision(self, adom, revision_id):
-        return self.delete(
-            url='dvmdb/adom/{}/revision/{}'.format(
-                adom, revision_id
-            ),
+        return self._delete(
+            url='dvmdb/adom/{}/revision/{}'.format(adom, revision_id),
             data=None
         )
 
@@ -305,31 +284,22 @@ class FortiManager(Forti):
         '''
         if created_by is None:
             created_by = self.credentials.userID
-        data = json.dumps(
-            {
-                "method": "clone",
-                "params": [
-                    {
-                        "url": "dvmdb/adom/{}/revision/{}".format(adom, revision_id),
-                        "data": {
-                            "created_by": created_by,
-                            "desc": description,
-                            "locked": locked,
-                            "name": name
-                        }
-                    }
-                ],
-                "id": 8921,
-                "session": self.token
-            }
+        data = {
+            "created_by": created_by,
+            "desc": description,
+            "locked": locked,
+            "name": name
+        }
+        return self._clone(
+            url='dvmdb/adom/{}/revision/{}'.format(adom, revision_id),
+            request_id=8921,
+            data=data
         )
-        return self._request(data)
 
     @login_required
     @toggle_lock
-    def add_policy(self, adom='root', policy_pkg='default',
-                   data=None):
-        return self.add(
+    def add_policy(self, adom='root', policy_pkg='default', data=None):
+        return self._add(
             url='pm/config/adom/{}/pkg/{}/firewall/policy'.format(
                 adom, policy_pkg
             ),
@@ -349,7 +319,7 @@ class FortiManager(Forti):
         return self._add(
             url='pm/config/adom/{}/obj/dynamic/interface'.format(adom),
             data=data,
-            request_id=667
+            request_id=667,
         )
 
     @login_required
@@ -361,16 +331,17 @@ class FortiManager(Forti):
             request_id=6670
         )
 
-    #Update existing objects
+    # Update existing objects
     @login_required
     @toggle_lock
     def update_firewall_addrgrp(self, adom='root', addrgrp_name=None, data=None):
         return self._update(
-            url='pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(adom, addrgrp_name), 
+            url='pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(
+                adom, addrgrp_name
+            ),
             data=data,
             request_id=66700
         )
-    
 
     @login_required
     @toggle_lock
@@ -378,21 +349,13 @@ class FortiManager(Forti):
         '''
         Delete a policy
         '''
-        data = json.dumps(
-            {
-                "method": "delete",
-                "params": [
-                    {
-                        "url": "pm/config/adom/{}/pkg/{}/firewall/policy/{}".format(
-                            adom, policy_pkg, policy_id
-                        )
-                    }
-                ],
-                "id": 89561,
-                "session": self.token
-            }
+        return self._delete(
+            url='pm/config/adom/{}/pkg/{}/firewall/policy/{}'.format(
+                adom, policy_pkg, policy_id
+            ),
+            data=None,
+            request_id=89561
         )
-        return self._request(data)
 
     @login_required
     @toggle_lock
@@ -400,209 +363,245 @@ class FortiManager(Forti):
         '''
         Delete an interface
         '''
-        return self.delete(
-            'pm/config/adom/{}/obj/dynamic/interface/{}'.format(adom, interface),
-            None
+        return self._delete(
+            url='pm/config/adom/{}/obj/dynamic/interface/{}'.format(
+                adom, interface
+            ),
+            data=None
         )
 
     @login_required
-    def get_security_profiles(self, adom):
+    def get_security_profiles(self, adom, **kwargs):
         '''
         Get security profiles
         '''
-        request_id = 5723
-        url = 'pm/config/adom/{}/obj/firewall'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall'.format(adom),
+            request_id=5723,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_addresses(self, adom):
+    def get_firewall_addresses(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 5623
-        url = 'pm/config/adom/{}/obj/firewall/address'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/address'.format(adom),
+            request_id=5623,
+            **kwargs
+        )
 
     @login_required
     def get_firewall_addresses6(self, adom):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 562
-        url = 'pm/config/adom/{}/obj/firewall/address6'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/address6'.format(adom),
+            request_id=562
+        )
 
     @login_required
-    def get_firewall_address6_groups(self, adom):
+    def get_firewall_address6_groups(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 5622,
-        url = 'pm/config/adom/{}/obj/firewall/addrgrp6'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/addrgrp6'.format(adom),
+            request_id=5622,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_address_groups(self, adom):
+    def get_firewall_address_groups(self, adom, **kwargs):
         '''
         Get all firewall adress groups defined for an ADOM
         '''
-        request_id = 56227
-        url = 'pm/config/adom/{}/obj/firewall/addrgrp'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/addrgrp'.format(adom),
+            request_id=56227,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_address_group(self, adom, addrgrp_name):
+    def get_firewall_address_group(self, adom, addrgrp_name, **kwargs):
         '''
         Get all firewall adress groups defined for an ADOM
         '''
-        request_id = 562270
-        url = 'pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(adom, addrgrp_name)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/addrgrp/{}'.format(
+                adom, addrgrp_name
+            ),
+            request_id=562270,
+            **kwargs
+        )
 
     @login_required
-    def get_interfaces(self, adom):
+    def get_interfaces(self, adom, **kwargs):
         '''
         Get all interfaces defined for an ADOM
         '''
-        request_id = 5682
-        url = 'pm/config/adom/{}/obj/dynamic/interface'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/dynamic/interface'.format(adom),
+            request_id=5682,
+            **kwargs
+        )
 
     @login_required
-    def get_services(self, adom):
+    def get_services(self, adom, **kwargs):
         '''
         Get all (firewall) services defined for an ADOM
         '''
-        request_id = 5617
-        url = 'pm/config/adom/{}/obj/firewall/service/custom'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/service/custom'.format(adom),
+            request_id=5617,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_service_groups(self, adom):
+    def get_firewall_service_groups(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 5616
-        url = 'pm/config/adom/{}/obj/firewall/service/group'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/service/group'.format(adom),
+            request_id=5616,
+            **kwargs
+        )
 
     @login_required
-    def get_schedules(self, adom):
+    def get_schedules(self, adom, **kwargs):
         '''
         Get all scheduless defined for an ADOM
         '''
-        request_id = 5620
-        url = 'pm/config/adom/{}/obj/firewall/schedule/recurring'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/schedule/recurring'.format(adom),
+            request_id=5620,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_schedule_groups(self, adom):
+    def get_firewall_schedule_groups(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 56201
-        url = 'pm/config/adom/{}/obj/firewall/schedule/group'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/schedule/group'.format(adom),
+            request_id=56201,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_vips(self, adom):
+    def get_firewall_vips(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 5632
-        url = 'pm/config/adom/{}/obj/firewall/vip'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/vip'.format(adom),
+            request_id=5632,
+            **kwargs
+        )
 
     @login_required
-    def get_firewall_vip_groups(self, adom):
+    def get_firewall_vip_groups(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
-        request_id = 5633
-        url = 'pm/config/adom/{}/obj/firewall/vipgrp'.format(adom)
-        return self._get(url=url, request_id=request_id)
+        return self._get(
+            url='pm/config/adom/{}/obj/firewall/vipgrp'.format(adom),
+            request_id=5633,
+            **kwargs
+        )
 
     @login_required
-    def get_devices(self, adom=None):
+    def get_devices(self, adom=None, **kwargs):
         '''
         Get all devices defined for an ADOM
         If adom is undefined return all devices
         '''
-        url = 'dvmdb/adom/{}/device'.format(adom) if adom else 'dvmdb'
         return self._get(
-            url=url,
-            request_id=7465
+            url='dvmdb/adom/{}/device'.format(adom) if adom else 'dvmdb',
+            request_id=7465,
+            **kwargs
         )
 
     @login_required
-    def get_traffic_shapers(self, adom):
+    def get_traffic_shapers(self, adom, **kwargs):
         '''
         Get all traffic shapers for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/firewall/shaper/traffic-shaper'.format(adom),
-            request_id=5037
+            request_id=5037,
+            **kwargs
         )
 
     # Profiles
 
     @login_required
-    def get_antivirus_profiles(self, adom):
+    def get_antivirus_profiles(self, adom, **kwargs):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/root/obj/antivirus/profile'.format(adom),
-            request_id=8175
+            request_id=8175,
+            **kwargs
         )
 
-    def get_webfilters(self, adom):
+    def get_webfilters(self, adom, **kwargs):
         '''
         Get all antivirus profiles defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/webfilter/profile'.format(adom),
-            request_id=8177
+            request_id=8177,
+            **kwargs
         )
 
     @login_required
-    def get_ips_sensors(self, adom):
+    def get_ips_sensors(self, adom, **kwargs):
         '''
         Get all firewall adresses defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/ips/sensor'.format(adom),
-            request_id=9846
+            request_id=9846,
+            **kwargs
         )
 
     @login_required
-    def get_application_sensors(self, adom):
+    def get_application_sensors(self, adom, **kwargs):
         '''
         Get a list of all applications defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/application/list'.format(adom),
-            request_id=7850
+            request_id=7850,
+            **kwargs
         )
 
     @login_required
-    def get_users(self, adom):
+    def get_users(self, adom, **kwargs):
         '''
         Get a list of all local users defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/user/local'.format(adom),
-            request_id=9123
+            request_id=9123,
+            **kwargs
         )
 
     @login_required
-    def json_get_groups(self, adom):
+    def json_get_groups(self, adom, **kwargs):
         '''
         Get a list of all user groups defined for an ADOM
         '''
         return self._get(
             url='pm/config/adom/{}/obj/user/group'.format(adom),
-            request_id=9124
+            request_id=9124,
+            **kwargs
         )
 
     # Workspace functions (FortiManager 5 Patch Release 3)
@@ -612,22 +611,21 @@ class FortiManager(Forti):
         '''
         Lock an ADOM
         '''
-        return self._exec(url="pm/config/adom/{}/_workspace/lock".format(adom), request_id = 5612)
+        return self._exec(url="pm/config/adom/{}/_workspace/lock".format(adom), request_id=5612)
 
     @login_required
     def unlock_adom(self, adom):
         '''
         Unclock an ADOM
         '''
-        return self._exec(url="pm/config/adom/{}/_workspace/unlock".format(adom), request_id = 5613)
+        return self._exec(url="pm/config/adom/{}/_workspace/unlock".format(adom), request_id=5613)
 
     @login_required
     def commit(self, adom):
         '''
         Commit changes made to ADOM
         '''
-        return self._exec(url="pm/config/adom/{}/_workspace/commit".format(adom), request_id = 5614)
-
+        return self._exec(url="pm/config/adom/{}/_workspace/commit".format(adom), request_id=5614)
 
 
 if __name__ == '__main__':
