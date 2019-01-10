@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 TOKEN_TIMEOUT = 2
 
 
+def kwargs_to_json_handler(kwargs):
+    '''
+    Necessary for python args and API params name conflict resolution.
+    e.g. for table "get_used" -> "get used" or "filter_" -> "filter".
+    '''
+    return {k.strip('_').replace('_', ' '): v for k, v in kwargs.items()}
+
+
 def commonerrorhandler(f):
     '''
     Centralized exception handling for common errors such as invalid
@@ -81,18 +89,20 @@ class Forti(object):
         self._token_age = None
         self.login()
 
-    def _request(self, method, url, option=None, data=None, request_id=1,
-                 verbose=False):
+    def _request(self, method, url, request_id=1, verbose=False, **kwargs):
         '''
         Perform a JSON request
         :param method: Method to use (get/set/delete etc.)
         :param url: Internal URL
-        :param data: Data of the request
+        :param \**kwargs: Additional params according to the FortiManager
+                          JSON API documentation and method used.
         '''
         try:
+            params = {'url': url}
+            params.update(kwargs_to_json_handler(kwargs))
             post_data = json.dumps({
                 'method': method,
-                'params': [{'url': url, 'data': data, 'option': option}],
+                'params': [params],
                 'id': request_id,
                 'verbose': verbose,
                 'jsonrpc': '2.0',
@@ -106,7 +116,7 @@ class Forti(object):
                 logger.error('Erroneous response')
                 r.raise_for_status()
             logger.debug(r.text)
-            res =  r.json()
+            res = r.json()
             assert res['id'] == request_id, 'Request ID changed.'
             return res
         except requests.exceptions.SSLError as e:
@@ -127,17 +137,16 @@ class Forti(object):
         )
 
     @login_required
-    def _get(self, url, request_id=11, option=None, data=None, verbose=False, skip=False):
+    def _get(self, url, request_id=11, verbose=False, skip=False, **kwargs):
         '''
         Generic "get" function
         '''
         res = self._request(
             method='get',
             url=url,
-            data=data,
-            option=option,
             request_id=request_id,
-            verbose=verbose
+            verbose=verbose,
+            **kwargs
         )
         logger.debug(res)
         # assert len(res['result']) == 1, 'More than one result has been returned'
@@ -154,7 +163,6 @@ class Forti(object):
             else:
                 logger.warning("unhandled case - don't know if thats possible")
         return res['result']['data']
-
 
     @login_required
     def _add(self, url, data, request_id=12, verbose=False):
@@ -208,7 +216,33 @@ class Forti(object):
             verbose=verbose
         )
 
-    def _exec(self, url, data=None, request_id=11, verbose=False, skip=False):
+    @login_required
+    def _clone(self, url, request_id=11, verbose=False, skip=False, **kwargs):
+        '''
+        Generic "clone" function
+        '''
+        return self._request(
+            method='clone',
+            url=url,
+            request_id=request_id,
+            verbose=verbose,
+            **kwargs
+        )
+
+    @login_required
+    def _move(self, url, request_id=11, verbose=False, skip=False, **kwargs):
+        '''
+        Generic "move" function
+        '''
+        return self._request(
+            method='move',
+            url=url,
+            request_id=request_id,
+            verbose=verbose,
+            **kwargs
+        )
+
+    def _exec(self, url, request_id=11, verbose=False, skip=False, **kwargs):
         '''
         Generic "exec" function
         '''
@@ -216,8 +250,8 @@ class Forti(object):
             method='exec',
             url=url,
             request_id=request_id,
-            data=data,
-            verbose=verbose
+            verbose=verbose,
+            **kwargs
         )
 
     def login(self, username=None, password=None):
@@ -229,9 +263,10 @@ class Forti(object):
             username = self.credentials.userID
         if password is None:
             password = self.credentials.password
-        url = 'sys/login/user'
-        data = {'passwd': password, 'user': username}
-        res = self._exec(url, data)
+        res = self._exec(
+            url='sys/login/user',
+            data={'passwd': password, 'user': username}
+        )
         assert res, 'No data received'
         if 'session' in res:
             self.token = res['session']
@@ -251,4 +286,3 @@ class Forti(object):
         res = self._exec(url='sys/logout', request_id=3)
         self.token = None
         return res
-
