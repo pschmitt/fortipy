@@ -309,6 +309,24 @@ class FortiManager(Forti):
 
     @login_required
     @toggle_lock
+    def add_policy6(self, adom='root', policy_pkg='default', data=None):
+        '''
+        Add new single or multiple IPv6 firewall policy.
+        :param adom: define the administrative domain
+        :param policy_pkg: define the policy package
+        :param data: IPv6 firewall policy object
+        :return: Response object
+        '''
+        return self._add(
+            url='pm/config/adom/{}/pkg/{}/firewall/policy6'.format(
+                adom, policy_pkg
+            ),
+            data=data,
+            request_id=670
+        )
+
+    @login_required
+    @toggle_lock
     def edit_policy(self, adom, policy_id):
         pass
 
