@@ -346,6 +346,21 @@ class FortiManager(Forti):
             request_id=668
         )
 
+    @login_required
+    @toggle_lock
+    def add_service(self, adom='root', data=None):
+        '''
+        Add new single or multiple custom service object.
+        :param adom: define the administrative domain
+        :param data: custom service object to create
+        :return: Response object
+        '''
+        return self._add(
+            url='/pm/config/adom/{}/obj/firewall/service/custom'.format(adom),
+            data=data,
+            request_id=669
+        )
+
     # Update existing objects
     @login_required
     @toggle_lock
