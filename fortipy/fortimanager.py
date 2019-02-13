@@ -309,6 +309,24 @@ class FortiManager(Forti):
 
     @login_required
     @toggle_lock
+    def add_policy6(self, adom='root', policy_pkg='default', data=None):
+        '''
+        Add new single or multiple IPv6 firewall policy.
+        :param adom: define the administrative domain
+        :param policy_pkg: define the policy package
+        :param data: IPv6 firewall policy object
+        :return: Response object
+        '''
+        return self._add(
+            url='pm/config/adom/{}/pkg/{}/firewall/policy6'.format(
+                adom, policy_pkg
+            ),
+            data=data,
+            request_id=670
+        )
+
+    @login_required
+    @toggle_lock
     def edit_policy(self, adom, policy_id):
         pass
 
@@ -329,6 +347,36 @@ class FortiManager(Forti):
             url='pm/config/adom/{}/obj/firewall/address'.format(adom),
             data=data,
             request_id=6670
+        )
+
+    @login_required
+    @toggle_lock
+    def add_firewall_address6(self, adom='root', data=None):
+        '''
+        Adding new single or multiple IPv6 firewall address objects.
+        :param adom: define the administrative domain
+        :param data: firewall address object to create
+        :return: Response object
+        '''
+        return self._add(
+            url='pm/config/adom/{}/obj/firewall/address6'.format(adom),
+            data=data,
+            request_id=668
+        )
+
+    @login_required
+    @toggle_lock
+    def add_service(self, adom='root', data=None):
+        '''
+        Add new single or multiple custom service object.
+        :param adom: define the administrative domain
+        :param data: custom service object to create
+        :return: Response object
+        '''
+        return self._add(
+            url='/pm/config/adom/{}/obj/firewall/service/custom'.format(adom),
+            data=data,
+            request_id=669
         )
 
     # Update existing objects
