@@ -164,6 +164,9 @@ class FortiManager(Forti):
         for polpkg in policy_packages:
             pols = self.get_policies(adom=adom, policy_package=polpkg, **kwargs)
             if pols:
+                # Append policy package info
+                for p in pols:
+                    p['__policy_package'] = polpkg
                 policies += pols
         return policies
 
